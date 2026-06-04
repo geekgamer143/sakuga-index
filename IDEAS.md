@@ -1,0 +1,18 @@
+# Sakuga Index — v3 Ideas & Findings
+
+## Key findings (from Craft Score analysis)
+- Sakugabooru community scores entangle animation QUALITY with FANDOM SIZE/virality.
+  Acknowledged classics (Frieren, Naruto: Shippuuden) rank lower than reputation
+  because their fanbases upvote less than viral-hit fandoms. Documented limitation.
+- Craft is UNEVEN within a show. Boruto ranks high almost entirely on one ending
+  (NCED23) and one episode (#87), not broad consistency. Average-based score can't
+  tell "consistently great" from "few brilliant moments."
+
+## v3 ideas to build
+1. Per-episode analysis: parse episode_source (#08 (BD) -> 8, reject NCOP/NCED/OP/PV/URLs)
+   to measure consistency vs. peak craft, and power the episode heatmap feature.
+2. Two separate rankings: "Craft Score" (per-moment quality) vs "Sakuga Volume"
+   (body of celebrated work). Stop forcing one number to do both jobs.
+3. Uncap clip collection (currently max_clips=20) so volume/consistency signal is real.
+4. Mob Psycho 100: excluded (insufficient_data) — tag with numeral doesn't resolve via
+   post API. Documented data-source limitation.
