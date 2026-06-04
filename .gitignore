@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Environment / secrets — NEVER commit these
+.env
+*.env
+
+# OS junk
+.DS_Store
+
+# Data
+data/raw/
+*.db
