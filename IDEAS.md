@@ -16,3 +16,14 @@
 3. Uncap clip collection (currently max_clips=20) so volume/consistency signal is real.
 4. Mob Psycho 100: excluded (insufficient_data) — tag with numeral doesn't resolve via
    post API. Documented data-source limitation.
+
+## Session findings: combined quality + consistency analysis
+- Built 3-dimension view: Craft Score (quality) + episode spread (consistency) + coverage % (trust flag).
+- Three kinds of "good animation" now distinguished:
+  * BROADLY EXCELLENT: high craft + high spread + high coverage (Vinland Saga, AoT, Gurren Lagann)
+  * PEAKY BRILLIANT: high craft + low spread + high coverage (Frieren ~2 eps, One Punch Man ~3 eps)
+  * CANNOT ASSESS: high craft + low coverage (Chainsaw Man, JJK) — consistency unmeasurable
+- KEY FINDING: Chainsaw Man ranks #1 but its clips are mostly promotional/social (PR trailers, OP/ED).
+  Its score reflects marketing reach + fandom hype, NOT episode craft. Confirms the popularity confound
+  concretely: community scores conflate animation quality with fandom size and promotional buzz.
+- Coverage flag (<50% episode data) successfully identifies which rankings NOT to trust.
