@@ -5,9 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sakuga Index</title>
 <style>
-    body { font-family: -apple-system, system-ui, sans-serif; background: #0f0f14;
-            color: #e8e8ea; max-width: 1000px; margin: 40px auto; padding: 0 20px; }
-    h1 { font-size: 2.4em; margin-bottom: 2px; }
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap');
+    body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: #0f0f14;
+            color: #e8e8ea; max-width: 1000px; margin: 48px auto; padding: 0 24px; line-height: 1.5; }
+    h1, h2, .toggle button { font-family: 'Space Grotesk', sans-serif; }
+    h1 { font-size: 2.4em; margin-bottom: 2px; letter-spacing: -0.5px; }
     .tagline { color: #9a9aa8; margin-bottom: 8px; }
     .lens-desc { color: #7a7a8a; font-size: 0.9em; margin-bottom: 24px; font-style: italic; }
     .toggle { display: flex; gap: 8px; margin-bottom: 20px; }
@@ -22,11 +24,11 @@
     #compare-section h2 { font-size: 1.15em; margin: 0 0 14px 0; }
     .cmp-controls { display: flex; gap: 10px; flex-wrap: wrap; }
     #cmpA, #cmpB { padding: 10px 12px; font-size: 0.95em; background: #1a1a22;
-            border: 1px solid #3a3a48; border-radius: 8px; color: #e8e8ea; min-width: 200px; }
+            border: 1px solid #3a3a48; border-radius: 8px; color: #e8e8ea; min-width: 200px; font-family: 'Inter', sans-serif; }
     #cmpA:focus, #cmpB:focus { outline: none; border-color: #7dd3a8; }
     .cmp-vs { align-self: center; color: #7a7a8a; }
     .verdict { background: #12121a; border: 1px solid #2a2a36; border-radius: 10px; padding: 18px; margin-top: 16px; }
-    .verdict .headline { font-weight: 700; color: #7dd3a8; margin-bottom: 10px; font-size: 1.05em; }
+    .verdict .headline { font-weight: 700; color: #7dd3a8; margin-bottom: 10px; font-size: 1.05em; font-family: 'Space Grotesk', sans-serif; }
     .verdict .detail { color: #c8c8d4; line-height: 1.6; font-size: 0.95em; }
     .verdict .vs-row { display: flex; gap: 20px; margin-bottom: 14px; flex-wrap: wrap; }
     .verdict .vs-col { flex: 1; min-width: 180px; }
