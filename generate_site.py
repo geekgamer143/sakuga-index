@@ -6,7 +6,6 @@ from collections import defaultdict
 conn = sqlite3.connect("sakuga.db")
 cursor = conn.cursor()
 
-# now also pulling a.episodes so we can tell real films from data-thin series
 cursor.execute("""
     SELECT a.title, a.episodes, c.community_score, c.episode_number
     FROM anime a
@@ -20,7 +19,7 @@ for title, ep_count, score, ep in rows:
     s = shows[title]
     s["scores"].append(score or 0)
     s["total"] += 1
-    s["ep_count"] = ep_count          # AniList episode count (1 = film)
+    s["ep_count"] = ep_count
     if ep is not None:
         s["episodes_set"].add(ep)
         s["with_ep"] += 1
@@ -29,16 +28,13 @@ MIN_COVERAGE = 50
 MIN_SPREAD = 2
 
 def make_label(peak, sustained, spread, coverage, measurable, ep_count):
-    """Recommendation-style label. Answers 'why would I care?' — stays honest about what the data supports."""
     is_film = ep_count is not None and ep_count <= 1
     if is_film:
         return "Film — Worth Seeing"
-    # Series with strong buzz but we can't verify episodic craft (promo/social-driven clips)
     if not measurable:
         if peak >= 16:
             return "Hyped — Hard to Verify"
         return "Modest Sakuga Presence"
-    # Measurable shows — judge by sustained (consistency) primarily
     if sustained is not None and sustained >= 14:
         return "Must-Watch Sakuga"
     if sustained is not None and sustained >= 10:
@@ -50,15 +46,13 @@ def make_label(peak, sustained, spread, coverage, measurable, ep_count):
     return "Modest Sakuga Presence"
 
 def stars(value, lo, hi):
-    """Map a score in [lo, hi] to 1-5 stars (filled count)."""
     if value is None:
         return 0
     frac = (value - lo) / (hi - lo)
     frac = max(0.0, min(1.0, frac))
-    return round(1 + frac * 4)   # 1..5
+    return round(1 + frac * 4)
 
 def consistency_phrase(spread, coverage, measurable, ep_count):
-    """Warm, concrete phrase — keeps real episode counts as the value-add."""
     if ep_count is not None and ep_count <= 1:
         return "Single film"
     if not measurable:
@@ -73,7 +67,6 @@ def consistency_phrase(spread, coverage, measurable, ep_count):
         return f"Solid in {spread} episodes"
     return f"Shines in {spread} key episode" + ("s" if spread != 1 else "")
 
-# find score ranges for star scaling
 all_peaks = []
 all_sustained = []
 tmp = []
@@ -139,6 +132,21 @@ html = f"""<!DOCTYPE html>
     #search {{ width: 100%; padding: 12px 16px; font-size: 1em; background: #1a1a22;
             border: 1px solid #3a3a48; border-radius: 8px; color: #e8e8ea; margin-bottom: 20px; box-sizing: border-box; }}
     #search:focus {{ outline: none; border-color: #7dd3a8; }}
+    #compare-section {{ margin: 28px 0; padding: 20px; background: #15151c;
+            border: 1px solid #2a2a36; border-radius: 10px; }}
+    #compare-section h2 {{ font-size: 1.15em; margin: 0 0 14px 0; }}
+    .cmp-controls {{ display: flex; gap: 10px; flex-wrap: wrap; }}
+    #cmpA, #cmpB {{ padding: 10px 12px; font-size: 0.95em; background: #1a1a22;
+            border: 1px solid #3a3a48; border-radius: 8px; color: #e8e8ea; min-width: 200px; }}
+    #cmpA:focus, #cmpB:focus {{ outline: none; border-color: #7dd3a8; }}
+    .cmp-vs {{ align-self: center; color: #7a7a8a; }}
+    .verdict {{ background: #12121a; border: 1px solid #2a2a36; border-radius: 10px; padding: 18px; margin-top: 16px; }}
+    .verdict .headline {{ font-weight: 700; color: #7dd3a8; margin-bottom: 10px; font-size: 1.05em; }}
+    .verdict .detail {{ color: #c8c8d4; line-height: 1.6; font-size: 0.95em; }}
+    .verdict .vs-row {{ display: flex; gap: 20px; margin-bottom: 14px; flex-wrap: wrap; }}
+    .verdict .vs-col {{ flex: 1; min-width: 180px; }}
+    .verdict .vs-name {{ font-weight: 600; margin-bottom: 4px; }}
+    .verdict .vs-stat {{ color: #9a9aa8; font-size: 0.88em; }}
     table {{ width: 100%; border-collapse: collapse; }}
     th {{ text-align: left; padding: 10px 12px; border-bottom: 2px solid #3a3a48;
           color: #b8b8c8; font-size: 0.8em; text-transform: uppercase; }}
@@ -180,6 +188,16 @@ html = f"""<!DOCTYPE html>
 
     <input type="text" id="search" placeholder="Search for an anime..." />
 
+    <div id="compare-section">
+        <h2>Compare two anime</h2>
+        <div class="cmp-controls">
+            <select id="cmpA"></select>
+            <span class="cmp-vs">vs</span>
+            <select id="cmpB"></select>
+        </div>
+        <div id="cmp-result"></div>
+    </div>
+
     <table>
         <thead id="thead"></thead>
         <tbody id="rankings"></tbody>
@@ -203,7 +221,7 @@ html = f"""<!DOCTYPE html>
         sustained: "Sustained Craft: quality spread across many episodes. Rewards consistency over a full run. Films and data-thin shows are listed separately below."
     }};
 
-   function labelClass(label) {{
+    function labelClass(label) {{
         const map = {{
             "Must-Watch Sakuga": "label-brilliant",
             "Great Throughout": "label-steady",
@@ -259,6 +277,97 @@ html = f"""<!DOCTYPE html>
         }});
     }}
 
+    // ---- COMPARE ----
+    const selA = document.getElementById('cmpA');
+    const selB = document.getElementById('cmpB');
+    const byTitle = [...shows].sort((a,b) => a.title.localeCompare(b.title));
+    byTitle.forEach(s => {{
+        selA.innerHTML += `<option value="${{s.title}}">${{s.title}}</option>`;
+        selB.innerHTML += `<option value="${{s.title}}">${{s.title}}</option>`;
+    }});
+    if (byTitle.length > 1) selB.selectedIndex = 1;
+
+    function verdict(a, b) {{
+        if (a.isFilm !== b.isFilm) {{
+            const film = a.isFilm ? a : b;
+            const series = a.isFilm ? b : a;
+            return {{
+                headline: "Different things entirely",
+                detail: `${{film.title}} is a film and ${{series.title}} is a series, so they're not directly comparable. ` +
+                    `${{film.title}} delivers a single concentrated work; ${{series.title}} is judged across its full run (${{series.phrase.toLowerCase()}}).`
+            }};
+        }}
+        if (a.isFilm && b.isFilm) {{
+            const hi = a.peak >= b.peak ? a : b;
+            const lo = a.peak >= b.peak ? b : a;
+            return {{
+                headline: `${{hi.title}} edges ahead on celebrated craft`,
+                detail: `Both are films. ${{hi.title}} has the higher peak-craft rating (${{hi.peak}} vs ${{lo.peak}}), ` +
+                    `meaning its standout cuts drew more acclaim — though both are worth seeing.`
+            }};
+        }}
+        const aHype = !a.measurable, bHype = !b.measurable;
+        if (aHype || bHype) {{
+            const hyped = aHype ? a : b;
+            const solid = aHype ? b : a;
+            if (aHype && bHype) {{
+                return {{
+                    headline: "Both are hard to verify",
+                    detail: `${{a.title}} and ${{b.title}} both score on buzz, but most of their clips are promo/social — ` +
+                        `we can't confirm episode-to-episode craft for either. Treat the ratings as hype, not proven consistency.`
+                }};
+            }}
+            return {{
+                headline: `${{solid.title}} is the safer bet for proven craft`,
+                detail: `${{hyped.title}} scores higher on peak buzz (${{hyped.peak}}), but most of its clips are promo/social, ` +
+                    `so we can't verify consistent animation. ${{solid.title}} has verifiable quality — ${{solid.phrase.toLowerCase()}}. ` +
+                    `Pick ${{hyped.title}} for hyped moments, ${{solid.title}} for reliable craft.`
+            }};
+        }}
+        const peakWin = a.peak >= b.peak ? a : b;
+        const susWin = a.sustained >= b.sustained ? a : b;
+        if (peakWin.title === susWin.title) {{
+            const winner = peakWin, other = winner === a ? b : a;
+            return {{
+                headline: `${{winner.title}} is the stronger pick overall`,
+                detail: `${{winner.title}} leads on both standout moments (peak ${{winner.peak}} vs ${{other.peak}}) ` +
+                    `and consistency (${{winner.phrase.toLowerCase()}}). ${{other.title}} is still solid — ${{other.phrase.toLowerCase()}} — but ${{winner.title}} wins on both dimensions.`
+            }};
+        }}
+        return {{
+            headline: "Depends what you're after",
+            detail: `${{peakWin.title}} has the higher standout moments (peak ${{peakWin.peak}}), while ` +
+                `${{susWin.title}} is more consistent (${{susWin.phrase.toLowerCase()}}). ` +
+                `Pick ${{peakWin.title}} for the best individual cuts, ${{susWin.title}} for sustained quality across its run.`
+        }};
+    }}
+
+    function renderCompare() {{
+        const a = shows.find(s => s.title === selA.value);
+        const b = shows.find(s => s.title === selB.value);
+        if (!a || !b) return;
+        if (a.title === b.title) {{
+            document.getElementById('cmp-result').innerHTML =
+                `<div class="verdict"><div class="detail">Pick two different anime to compare.</div></div>`;
+            return;
+        }}
+        const v = verdict(a, b);
+        document.getElementById('cmp-result').innerHTML = `
+            <div class="verdict">
+                <div class="vs-row">
+                    <div class="vs-col"><div class="vs-name">${{a.title}}</div>
+                        <div class="vs-stat">${{a.label}} · peak ${{a.peak}} · ${{a.phrase}}</div></div>
+                    <div class="vs-col"><div class="vs-name">${{b.title}}</div>
+                        <div class="vs-stat">${{b.label}} · peak ${{b.peak}} · ${{b.phrase}}</div></div>
+                </div>
+                <div class="headline">${{v.headline}}</div>
+                <div class="detail">${{v.detail}}</div>
+            </div>`;
+    }}
+    selA.addEventListener('change', renderCompare);
+    selB.addEventListener('change', renderCompare);
+    renderCompare();
+
     const exList = document.getElementById('excluded-list');
     excluded.forEach(e => {{
         exList.innerHTML += `<div class="excluded-item">
@@ -276,4 +385,4 @@ html = f"""<!DOCTYPE html>
 with open("index.html", "w") as f:
     f.write(html)
 
-print("Generated index.html with stars, fixed labels, and human-readable columns!")
+print("Generated index.html with compare feature and honest verdicts!")
