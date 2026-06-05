@@ -37,7 +37,6 @@ for title, s in shows.items():
 results.sort(key=lambda x: x["craft"], reverse=True)
 conn.close()
 
-# Convert our Python data into JSON so JavaScript can read it
 data_json = json.dumps(results)
 
 html = f"""<!DOCTYPE html>
@@ -52,6 +51,7 @@ html = f"""<!DOCTYPE html>
             max-width: 900px; margin: 40px auto; padding: 0 20px;
         }}
         h1 {{ font-size: 2.2em; margin-bottom: 4px; }}
+        h2 {{ font-size: 1.3em; margin: 0 0 12px 0; }}
         .tagline {{ color: #9a9aa8; margin-bottom: 24px; }}
         #search {{
             width: 100%; padding: 12px 16px; font-size: 1em;
@@ -71,8 +71,18 @@ html = f"""<!DOCTYPE html>
         .title {{ font-weight: 600; }}
         .craft {{ color: #7dd3a8; font-weight: bold; }}
         .flag {{ color: #e0a458; font-size: 0.8em; }}
-        /* smooth fade for rows appearing/disappearing */
         tr {{ transition: opacity 0.2s; }}
+        /* NEW: styling for the compare dropdowns + section */
+        #compare-section {{
+            background: #15151c; border: 1px solid #2a2a36;
+            border-radius: 10px; padding: 20px; margin-bottom: 30px;
+        }}
+        select {{
+            padding: 10px 12px; font-size: 0.95em; margin-right: 10px;
+            background: #1a1a22; border: 1px solid #3a3a48;
+            border-radius: 8px; color: #e8e8ea;
+        }}
+        select:focus {{ outline: none; border-color: #7dd3a8; }}
     </style>
 </head>
 <body>
@@ -80,6 +90,14 @@ html = f"""<!DOCTYPE html>
     <p class="tagline">Ranking anime by animation craft — not story or popularity.</p>
 
     <input type="text" id="search" placeholder="Search for an anime..." />
+
+    <!-- NEW: compare section -->
+    <div id="compare-section">
+        <h2>Compare Two Anime</h2>
+        <select id="showA"></select>
+        <select id="showB"></select>
+        <div id="compare-result"></div>
+    </div>
 
     <table>
         <thead>
@@ -92,13 +110,11 @@ html = f"""<!DOCTYPE html>
     </table>
 
     <script>
-        // The data, handed over from Python
         const shows = {data_json};
 
-        // Function that draws the table from a list of shows
         function renderTable(list) {{
             const tbody = document.getElementById("rankings");
-            tbody.innerHTML = "";  // clear current rows
+            tbody.innerHTML = "";
             list.forEach((show, i) => {{
                 const flag = show.coverage < 50
                     ? '<span class="flag">⚠ low coverage</span>' : '';
@@ -114,10 +130,8 @@ html = f"""<!DOCTYPE html>
             }});
         }}
 
-        // Draw the full table on load
         renderTable(shows);
 
-        // SEARCH: every time the user types, filter and redraw
         document.getElementById("search").addEventListener("input", (e) => {{
             const query = e.target.value.toLowerCase();
             const filtered = shows.filter(s =>
@@ -125,6 +139,34 @@ html = f"""<!DOCTYPE html>
             );
             renderTable(filtered);
         }});
+
+        // NEW: ---- COMPARE MODE ----
+        const selA = document.getElementById("showA");
+        const selB = document.getElementById("showB");
+        shows.forEach(s => {{
+            selA.innerHTML += `<option value="${{s.title}}">${{s.title}}</option>`;
+            selB.innerHTML += `<option value="${{s.title}}">${{s.title}}</option>`;
+        }});
+        // start the two dropdowns on different shows so the comparison isn't identical
+        if (shows.length > 1) selB.selectedIndex = 1;
+
+        function renderComparison() {{
+            const a = shows.find(s => s.title === selA.value);
+            const b = shows.find(s => s.title === selB.value);
+            if (!a || !b) return;
+            document.getElementById("compare-result").innerHTML = `
+                <table style="margin-top: 16px;">
+                    <tr><th>Metric</th><th>${{a.title}}</th><th>${{b.title}}</th></tr>
+                    <tr><td>Craft Score</td><td class="craft">${{a.craft}}</td><td class="craft">${{b.craft}}</td></tr>
+                    <tr><td>Episode Spread</td><td>${{a.spread}}</td><td>${{b.spread}}</td></tr>
+                    <tr><td>Coverage</td><td>${{a.coverage}}%</td><td>${{b.coverage}}%</td></tr>
+                    <tr><td>Clips</td><td>${{a.clips}}</td><td>${{b.clips}}</td></tr>
+                </table>`;
+        }}
+
+        selA.addEventListener("change", renderComparison);
+        selB.addEventListener("change", renderComparison);
+        renderComparison();
     </script>
 </body>
 </html>"""
@@ -132,4 +174,4 @@ html = f"""<!DOCTYPE html>
 with open("index.html", "w") as f:
     f.write(html)
 
-print("Generated interactive index.html — open it and try the search box!")
+print("Generated index.html with compare mode — open it and try the dropdowns!")
