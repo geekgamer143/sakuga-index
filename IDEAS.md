@@ -27,3 +27,13 @@
   Its score reflects marketing reach + fandom hype, NOT episode craft. Confirms the popularity confound
   concretely: community scores conflate animation quality with fandom size and promotional buzz.
 - Coverage flag (<50% episode data) successfully identifies which rankings NOT to trust.
+
+## Next session ideas (captured end of 100-show day)
+- HUMAN-READABLE RANKINGS: translate Peak/Sustained scores into plain-language labels/badges
+  instead of raw numbers (e.g. "Consistently Excellent", "Viral Standout", "One Brilliant Moment",
+  "Hidden Gem"). Derive the label from the peak/sustained/spread/coverage combo. Makes the analysis
+  legible to any visitor, not just people who know the formula. Serves the honesty thesis.
+- DESIGN PASS / "anime vibes": real visual identity — typography, color, motion. Make it feel like
+  an anime site, not a spreadsheet. (The long-deferred design session.)
+- Still parked: frontend fork (single-file HTML vs Next.js), re-add compare mode to dual-ranking site,
+  README/writeup, Fate duplication cleanup.
