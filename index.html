@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sakuga Index</title>
+    <style>
+        body {
+            font-family: -apple-system, system-ui, sans-serif;
+            background: #0f0f14; color: #e8e8ea;
+            max-width: 900px; margin: 40px auto; padding: 0 20px;
+        }
+        h1 { font-size: 2.2em; margin-bottom: 4px; }
+        .tagline { color: #9a9aa8; margin-bottom: 24px; }
+        #search {
+            width: 100%; padding: 12px 16px; font-size: 1em;
+            background: #1a1a22; border: 1px solid #3a3a48;
+            border-radius: 8px; color: #e8e8ea; margin-bottom: 24px;
+            box-sizing: border-box;
+        }
+        #search:focus { outline: none; border-color: #7dd3a8; }
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            text-align: left; padding: 10px 12px;
+            border-bottom: 2px solid #3a3a48;
+            color: #b8b8c8; font-size: 0.85em; text-transform: uppercase;
+        }
+        td { padding: 10px 12px; border-bottom: 1px solid #23232e; }
+        .rank { color: #6a6a7a; font-weight: bold; width: 40px; }
+        .title { font-weight: 600; }
+        .craft { color: #7dd3a8; font-weight: bold; }
+        .flag { color: #e0a458; font-size: 0.8em; }
+        /* smooth fade for rows appearing/disappearing */
+        tr { transition: opacity 0.2s; }
+    </style>
+</head>
+<body>
+    <h1>Sakuga Index</h1>
+    <p class="tagline">Ranking anime by animation craft — not story or popularity.</p>
+
+    <input type="text" id="search" placeholder="Search for an anime..." />
+
+    <table>
+        <thead>
+            <tr>
+                <th>#</th><th>Title</th><th>Craft Score</th>
+                <th>Spread</th><th>Coverage</th><th>Clips</th>
+            </tr>
+        </thead>
+        <tbody id="rankings"></tbody>
+    </table>
+
+    <script>
+        // The data, handed over from Python
+        const shows = [{"title": "Chainsaw Man", "craft": 17.81, "spread": 0, "coverage": 0, "clips": 20}, {"title": "Jujutsu Kaisen", "craft": 16.72, "spread": 1, "coverage": 15, "clips": 20}, {"title": "BORUTO: NARUTO THE MOVIE", "craft": 16.65, "spread": 4, "coverage": 60, "clips": 20}, {"title": "Dragon Ball", "craft": 16.14, "spread": 6, "coverage": 40, "clips": 20}, {"title": "VINLAND SAGA", "craft": 15.99, "spread": 10, "coverage": 80, "clips": 20}, {"title": "Cyberpunk: Edgerunners", "craft": 15.66, "spread": 4, "coverage": 60, "clips": 20}, {"title": "ONE PIECE", "craft": 15.45, "spread": 4, "coverage": 90, "clips": 20}, {"title": "Shingeki no Kyojin", "craft": 14.87, "spread": 6, "coverage": 100, "clips": 20}, {"title": "One Punch Man", "craft": 14.08, "spread": 3, "coverage": 95, "clips": 20}, {"title": "Kimetsu no Yaiba", "craft": 13.42, "spread": 3, "coverage": 35, "clips": 20}, {"title": "Tengen Toppa Gurren Lagann", "craft": 13.22, "spread": 8, "coverage": 100, "clips": 20}, {"title": "Hajime no Ippo: Rising", "craft": 12.92, "spread": 5, "coverage": 80, "clips": 20}, {"title": "Baki", "craft": 12.63, "spread": 8, "coverage": 70, "clips": 20}, {"title": "Sousou no Frieren", "craft": 12.4, "spread": 2, "coverage": 90, "clips": 20}, {"title": "BLEACH", "craft": 11.94, "spread": 13, "coverage": 90, "clips": 20}, {"title": "Ore dake Level Up na Ken", "craft": 11.49, "spread": 1, "coverage": 15, "clips": 20}, {"title": "NARUTO: Shippuuden", "craft": 11.49, "spread": 11, "coverage": 80, "clips": 20}, {"title": "SPY\u00d7FAMILY", "craft": 10.32, "spread": 5, "coverage": 100, "clips": 20}];
+
+        // Function that draws the table from a list of shows
+        function renderTable(list) {
+            const tbody = document.getElementById("rankings");
+            tbody.innerHTML = "";  // clear current rows
+            list.forEach((show, i) => {
+                const flag = show.coverage < 50
+                    ? '<span class="flag">⚠ low coverage</span>' : '';
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="rank">${i + 1}</td>
+                        <td class="title">${show.title}</td>
+                        <td class="craft">${show.craft}</td>
+                        <td>${show.spread}</td>
+                        <td>${show.coverage}% ${flag}</td>
+                        <td>${show.clips}</td>
+                    </tr>`;
+            });
+        }
+
+        // Draw the full table on load
+        renderTable(shows);
+
+        // SEARCH: every time the user types, filter and redraw
+        document.getElementById("search").addEventListener("input", (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = shows.filter(s =>
+                s.title.toLowerCase().includes(query)
+            );
+            renderTable(filtered);
+        });
+    </script>
+</body>
+</html>
