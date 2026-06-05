@@ -2,6 +2,8 @@ import requests
 import sqlite3
 import time
 import re
+import json
+import os
 
 ANILIST_URL = "https://graphql.anilist.co"
 SAKUGA_POST_URL = "https://www.sakugabooru.com/post.json"
@@ -21,20 +23,30 @@ query ($search: String) {
 }
 """
 
-tag_type_cache = {}
+CACHE_FILE = "tag_type_cache.json"
+
+# Load the cache from disk if it exists, so we don't re-query known tags
+if os.path.exists(CACHE_FILE):
+    with open(CACHE_FILE) as f:
+        tag_type_cache = json.load(f)
+    print(f"Loaded {len(tag_type_cache)} cached tag types from disk")
+else:
+    tag_type_cache = {}
+
+# Collects shows that need manual review, printed at the end
+flagged = []
 
 def load_overrides():
-    """Read manual tag overrides: 'Show Name=correct_tag' per line."""
     overrides = {}
     try:
         with open("tag_overrides.txt") as f:
             for line in f:
                 line = line.strip()
                 if line and "=" in line:
-                    name, tag = line.split("=", 1)   # split on first = only
+                    name, tag = line.split("=", 1)
                     overrides[name.strip()] = tag.strip()
     except FileNotFoundError:
-        pass   # no override file is fine
+        pass
     return overrides
 
 def fetch_anime(search_term):
@@ -57,16 +69,13 @@ def fetch_anime(search_term):
         "studio": studio,
     }
 
-# ---------- IMPROVED TAG MATCHER ----------
 def clean_for_search(text):
-    """Lowercase and strip ALL punctuation/special chars (colons, ×, etc.)."""
     text = text.lower()
-    text = re.sub(r"[^a-z0-9 ]", " ", text)   # anything not a-z/0-9/space -> space
+    text = re.sub(r"[^a-z0-9 ]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
 def search_sakuga_tag(search_string):
-    """Search the tag endpoint, return highest-count tag name, or None."""
     guess = search_string.replace(" ", "_")
     params = {"name": guess, "limit": 10, "order": "count"}
     r = requests.get(SAKUGA_TAG_URL, headers=headers, params=params)
@@ -76,23 +85,33 @@ def search_sakuga_tag(search_string):
     return None
 
 def find_best_tag(title):
-    cleaned = clean_for_search(title)          # "naruto shippuuden", "spy family", etc.
-
-    # Strategy 1: full cleaned title
+    cleaned = clean_for_search(title)
     tag = search_sakuga_tag(cleaned)
     if tag:
         return tag
-
-    # Strategy 2: drop trailing words one at a time (handles "X: Rising", "X the movie")
     words = cleaned.split()
     while len(words) > 1:
         words = words[:-1]
         tag = search_sakuga_tag(" ".join(words))
         if tag:
             return tag
-
     return None
-# ------------------------------------------
+
+def is_match_suspicious(search_term, anime_title, tag):
+    """Decide if a resolved tag looks questionable and should be flagged for review.
+    Returns a reason string if suspicious, or None if it looks fine."""
+    cleaned_title = clean_for_search(anime_title).replace(" ", "_")
+    cleaned_search = clean_for_search(search_term).replace(" ", "_")
+    # Strip a trailing _series for comparison
+    tag_base = tag.replace("_series", "")
+    # If the tag shares NO word with either the title or the search term, it's suspicious
+    title_words = set(cleaned_title.split("_"))
+    search_words = set(cleaned_search.split("_"))
+    tag_words = set(tag_base.split("_"))
+    shared = (title_words | search_words) & tag_words
+    if not shared:
+        return f"tag '{tag}' shares no words with '{anime_title}'"
+    return None
 
 def is_artist_tag(name):
     if name in tag_type_cache:
@@ -106,21 +125,21 @@ def is_artist_tag(name):
     return is_artist
 
 def fetch_posts(tag, max_clips):
-    """Fetch posts for a tag. If 0 come back and tag ends in _series, retry without it."""
     params = {"tags": tag, "limit": max_clips}
     posts = requests.get(SAKUGA_POST_URL, headers=headers, params=params).json()
     if not posts and tag.endswith("_series"):
-        base = tag[:-len("_series")]            # strip "_series"
+        base = tag[:-len("_series")]
         params = {"tags": base, "limit": max_clips}
         posts = requests.get(SAKUGA_POST_URL, headers=headers, params=params).json()
     return posts
 
-def load_one_anime(search_term, conn, overrides, max_clips=20):
+def load_one_anime(search_term, conn, overrides, max_clips=50):
     cursor = conn.cursor()
 
     anime = fetch_anime(search_term)
     if anime is None:
         print(f"  ✗ '{search_term}': not found on AniList — skipping")
+        flagged.append((search_term, "NOT FOUND on AniList"))
         return
 
     studio_id = None
@@ -137,23 +156,33 @@ def load_one_anime(search_term, conn, overrides, max_clips=20):
          anime["episodes"], anime["score"], studio_id)
     )
 
-   # Check manual override FIRST (by the original search term), then auto-match
+    # Override first, else auto-match
+    used_override = False
     if search_term in overrides:
         tag = overrides[search_term]
+        used_override = True
         print(f"    (using manual override tag: {tag})")
     else:
         tag = find_best_tag(anime["title"])
+
     if tag is None:
         cursor.execute("UPDATE anime SET data_status = 'insufficient_data' WHERE anime_id = ?",
                        (anime["anime_id"],))
         conn.commit()
         print(f"  ⚠ '{anime['title']}': no sakuga tag found — marked insufficient_data")
+        flagged.append((search_term, "NO TAG FOUND"))
         return
+
+    # FLAG suspicious matches (skip the check if it was a manual override — we trust those)
+    if not used_override:
+        reason = is_match_suspicious(search_term, anime["title"], tag)
+        if reason:
+            flagged.append((search_term, reason))
+
     cursor.execute("UPDATE anime SET sakugabooru_tag = ? WHERE anime_id = ?",
                    (tag, anime["anime_id"]))
 
-    # Clear any existing clips for this anime first (show-level idempotency).
-    # This wipes out data from earlier wrong-tag runs so re-running gives a clean result.
+    # show-level idempotency
     cursor.execute("DELETE FROM clip_animators WHERE clip_id IN (SELECT clip_id FROM clips WHERE anime_id = ?)", (anime["anime_id"],))
     cursor.execute("DELETE FROM clips WHERE anime_id = ?", (anime["anime_id"],))
 
@@ -181,6 +210,11 @@ def load_one_anime(search_term, conn, overrides, max_clips=20):
     cursor.execute("UPDATE anime SET data_status = ? WHERE anime_id = ?",
                    (status, anime["anime_id"]))
     conn.commit()
+
+    # flag shows that found a tag but got zero clips (suspicious)
+    if not posts:
+        flagged.append((search_term, f"tag '{tag}' returned 0 clips"))
+
     print(f"  ✓ '{anime['title']}': {len(posts)} clips loaded (tag: {tag})")
 
 def main():
@@ -197,9 +231,21 @@ def main():
             load_one_anime(title, conn, overrides)
         except Exception as e:
             print(f"  ✗ ERROR on '{title}': {e} — skipping")
+            flagged.append((title, f"ERROR: {e}"))
         time.sleep(1)
 
     conn.close()
-    print("\nDone! Database built.")
+
+    # save cache for next run
+    with open(CACHE_FILE, "w") as f:
+        json.dump(tag_type_cache, f)
+
+    # print the review list
+    print(f"\n{'='*60}")
+    print(f"Done! Cached {len(tag_type_cache)} tag types.")
+    print(f"\n⚠ {len(flagged)} shows need REVIEW:")
+    for name, reason in flagged:
+        print(f"   • {name}: {reason}")
+    print(f"{'='*60}")
 
 main()

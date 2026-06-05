@@ -13,3 +13,4 @@ __pycache__/
 # Data
 data/raw/
 *.db
+tag_type_cache.json
