@@ -387,4 +387,10 @@ html = f"""<!DOCTYPE html>
 with open("index.html", "w") as f:
     f.write(html)
 
+import os
+os.makedirs("web/data", exist_ok=True)
+with open("web/data/rankings.json", "w") as f:
+    json.dump({"shows": ranked, "excluded": sorted(excluded, key=lambda x: x["peak"], reverse=True)}, f, indent=2)
+
 print("Generated index.html with Space Grotesk headers + Inter body!")
+print("Exported web/data/rankings.json")
