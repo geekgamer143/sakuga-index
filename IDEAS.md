@@ -37,3 +37,13 @@
   an anime site, not a spreadsheet. (The long-deferred design session.)
 - Still parked: frontend fork (single-file HTML vs Next.js), re-add compare mode to dual-ranking site,
   README/writeup, Fate duplication cleanup.
+
+## Next session: design & polish (USER drives the design calls)
+- FIRST: go back through the Next.js files one at a time until I can explain each (don't skip — understanding before styling).
+- Then make SPECIFIC design decisions one at a time (not "make it professional"):
+  - Animations: fade-in on scroll, smooth toggle transitions
+  - Visual tier list: S/A/B/C/D rows instead of a table (map tiers from Peak/Sustained scores)
+  - Hero section / professional landing feel
+  - Polish the compare card
+- Keep it MINE: I decide the what, Claude Code helps with how, I understand each change.
+- Reminder from this session: the Next.js rebuild ran ahead of my understanding. Slow down, stay in the driver's seat.
